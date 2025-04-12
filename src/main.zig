@@ -26,11 +26,5 @@ pub fn main() !void {
 
     var game_state = tetris.create_game_state(speed, seed, user_settings);
 
-    for (0..3) |i| {
-        std.debug.print("Game state at step {}: {}\n", .{ i, game_state });
-
-        tetris.update(&game_state);
-    }
-
     try backend.execute_main_loop(gpa.allocator(), &game_state);
 }

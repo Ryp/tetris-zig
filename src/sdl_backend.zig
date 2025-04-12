@@ -87,6 +87,12 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
                         c.SDLK_DOWN => {
                             game.press_direction_down(game_state);
                         },
+                        c.SDLK_RIGHT => {
+                            game.press_direction_side(game_state, true);
+                        },
+                        c.SDLK_LEFT => {
+                            game.press_direction_side(game_state, false);
+                        },
                         else => {},
                     }
                 },
@@ -104,7 +110,23 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
         _ = c.SDL_RenderClear(ren);
 
         for (game_state.board, 0..) |piece_type_opt, flat_index| {
-            const cell_coords = game.cell_coord_from_index(@intCast(flat_index));
+            if (piece_type_opt) |piece_type| {
+                const cell_coords = game.cell_coord_from_index(@intCast(flat_index));
+
+                const sprite_output_pos_rect = c.SDL_FRect{
+                    .x = @floatFromInt(cell_coords[0] * SpriteScreenExtent),
+                    .y = @floatFromInt(cell_coords[1] * SpriteScreenExtent),
+                    .w = @floatFromInt(SpriteScreenExtent),
+                    .h = @floatFromInt(SpriteScreenExtent),
+                };
+
+                const sprite_sheet_rect = get_sprite_sheet_rect(.{ @intFromEnum(piece_type), 0 });
+                _ = c.SDL_RenderTexture(ren, sprite_sheet_texture, &sprite_sheet_rect, &sprite_output_pos_rect);
+            }
+        }
+
+        for (game_state.current_piece.local_positions) |local_position| {
+            const cell_coords = @as(game.i32_2, @intCast(local_position)) + game_state.current_piece.offset;
 
             const sprite_output_pos_rect = c.SDL_FRect{
                 .x = @floatFromInt(cell_coords[0] * SpriteScreenExtent),
@@ -113,12 +135,7 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
                 .h = @floatFromInt(SpriteScreenExtent),
             };
 
-            var sprite_sheet_rect = get_sprite_sheet_rect(.{ 0, 0 });
-
-            if (piece_type_opt) |piece_type| {
-                sprite_sheet_rect = get_sprite_sheet_rect(.{ @intFromEnum(piece_type), 0 });
-            }
-
+            const sprite_sheet_rect = get_sprite_sheet_rect(.{ @intFromEnum(game_state.current_piece.type), 0 });
             _ = c.SDL_RenderTexture(ren, sprite_sheet_texture, &sprite_sheet_rect, &sprite_output_pos_rect);
         }
 

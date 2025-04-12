@@ -1,8 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const u32_2 = @Vector(2, u32);
-const i32_2 = @Vector(2, i32);
+pub const u32_2 = @Vector(2, u32);
+pub const i32_2 = @Vector(2, i32);
 
 pub const BoardWidth: u32 = 10;
 pub const BoardHeight: u32 = 20;
@@ -60,8 +60,28 @@ pub fn press_direction_down(game: *GameState) void {
     const collides_with_board = check_piece_collision(game.board, piece_one_step_down);
 
     if (collides_with_board) {
-        place_piece(game, piece_one_step_down);
-    } else {}
+        place_piece(game, game.current_piece);
+        generate_next_piece(game);
+    } else {
+        game.current_piece.offset += .{ 0, 1 };
+    }
+}
+
+pub fn press_direction_side(game: *GameState, right: bool) void {
+    const piece_one_step_side = Piece{
+        .type = game.current_piece.type,
+        .orientation = game.current_piece.orientation,
+        .offset = game.current_piece.offset + i32_2{ if (right) 1 else -1, 0 },
+        .local_positions = game.current_piece.local_positions,
+    };
+
+    const collides_with_board = check_piece_collision(game.board, piece_one_step_side);
+
+    if (collides_with_board) {
+        // TODO feedback
+    } else {
+        game.current_piece.offset += .{ if (right) 1 else -1, 0 };
+    }
 }
 
 pub fn update(game: *GameState) void {
@@ -82,8 +102,8 @@ fn generate_next_piece(game: *GameState) void {
 
 fn place_piece(game: *GameState, piece: Piece) void {
     for (game.current_piece.local_positions) |local_position| {
-        const piece_offset: u32_2 = @intCast(piece.offset);
-        const board_offset_flat = cell_index_from_coord(piece_offset + local_position);
+        const block_offset = piece.offset + local_position;
+        const board_offset_flat = cell_index_from_coord(@intCast(block_offset));
         game.board[board_offset_flat] = game.current_piece.type;
     }
 }
@@ -92,9 +112,9 @@ fn check_piece_collision(board: GameState.Board, piece: Piece) bool {
     const piece_offset: i32_2 = @intCast(piece.offset);
 
     for (piece.local_positions) |local_position| {
-        const board_position = piece_offset + @as(i32_2, @intCast(local_position));
+        const board_position = piece_offset + local_position;
 
-        const piece_is_on_board = all(board_position > i32_2{ 0, 0 }) and all(board_position < i32_2{ BoardExtent[0], BoardExtent[1] });
+        const piece_is_on_board = all(board_position >= i32_2{ 0, 0 }) and all(board_position < i32_2{ BoardExtent[0], BoardExtent[1] });
 
         if (!piece_is_on_board) {
             return true;
@@ -148,7 +168,7 @@ const Piece = struct {
     type: PieceType,
     orientation: Orientation,
     offset: i32_2,
-    local_positions: [4]u32_2,
+    local_positions: [4]i32_2,
 };
 
 const PieceType = enum {
@@ -170,7 +190,7 @@ const Orientation = enum(u2) {
     West,
 };
 
-fn build_piece_positions(piece_type: PieceType, orientation: Orientation) [4]u32_2 {
+fn build_piece_positions(piece_type: PieceType, orientation: Orientation) [4]i32_2 {
     return switch (piece_type) {
         .Bar => switch (orientation) {
             .West, .East => .{
