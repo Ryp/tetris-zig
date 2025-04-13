@@ -22,9 +22,9 @@ pub fn main() !void {
     std.crypto.random.bytes(buf[0..]);
     const seed = std.mem.readInt(u64, buf[0..8], native_endian);
 
-    const user_settings = tetris.UserSettings{};
+    var game_state = tetris.create_game_state(speed, seed);
 
-    var game_state = tetris.create_game_state(speed, seed, user_settings);
+    std.debug.print("Game state: {}\n", .{game_state});
 
     try backend.execute_main_loop(gpa.allocator(), &game_state);
 }

@@ -70,7 +70,7 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
 
     while (!shouldExit) {
         const current_frame_time_ms: u64 = c.SDL_GetTicks();
-        // const frame_delta_secs = @as(f32, @floatFromInt(current_frame_time_ms - last_frame_time_ms)) * 0.001;
+        const frame_delta_secs = @as(f32, @floatFromInt(current_frame_time_ms - last_frame_time_ms)) * 0.001;
 
         // Poll events
         var sdlEvent: c.SDL_Event = undefined;
@@ -93,6 +93,12 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
                         c.SDLK_LEFT => {
                             game.press_direction_side(game_state, false);
                         },
+                        c.SDLK_E => {
+                            game.press_rotate(game_state, true);
+                        },
+                        c.SDLK_W => {
+                            game.press_rotate(game_state, false);
+                        },
                         else => {},
                     }
                 },
@@ -100,9 +106,9 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
             }
         }
 
-        game.update(game_state);
+        game.update(game_state, frame_delta_secs);
 
-        const string = try std.fmt.allocPrintZ(allocator, "Tetris | speed {d}", .{game_state.current_speed});
+        const string = try std.fmt.allocPrintZ(allocator, "Tetris | speed {d} tick = {}", .{ game_state.current_speed, game_state.next_tick_time_secs });
         defer allocator.free(string);
 
         _ = c.SDL_SetWindowTitle(window, string.ptr);

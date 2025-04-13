@@ -1,50 +1,69 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+pub const BoardWidth: u32 = 10;
+pub const BoardHeight: u32 = 20;
+
+const BoardLen: u32 = BoardWidth * BoardHeight;
+const BoardExtent = u32_2{ BoardWidth, BoardHeight };
+
 pub const u32_2 = @Vector(2, u32);
 pub const i32_2 = @Vector(2, i32);
 
-pub const BoardWidth: u32 = 10;
-pub const BoardHeight: u32 = 20;
-// const BoardHeight: u32 = 20;
-const BoardExtent = u32_2{ BoardWidth, BoardHeight };
-
 pub const GameState = struct {
     rng: std.Random.Xoroshiro128,
-    settings: UserSettings,
 
     current_speed: u32,
+
+    // Set by reset_ticks
+    next_tick_time_secs: f32 = undefined,
 
     // Set by generate_next_piece
     current_piece: Piece = undefined,
 
-    board: Board = undefined,
+    board: Board = .{null} ** BoardLen,
 
-    next_piece_type: PieceType,
+    // Set by generate_next_piece_type
+    next_piece_type: PieceType = undefined,
 
     lines_cleared_array: [4]u32 = undefined,
     lines_cleared_count: u32 = 0,
 
-    const Board = [BoardWidth * BoardHeight]?PieceType;
+    const Board = [BoardLen]?PieceType;
+    const Self = @This();
+
+    fn generate_next_piece_type(self: *Self) void {
+        self.next_piece_type = @enumFromInt(self.rng.random().uintLessThan(u32, PieceType.Count));
+    }
+
+    fn generate_next_piece(self: *Self) void {
+        self.current_piece = .{
+            .type = self.next_piece_type,
+            .orientation = .North,
+            .offset = .{ 3, 0 },
+            .local_positions = undefined, // Set right after
+        };
+
+        self.current_piece.local_positions = build_piece_positions(self.current_piece.type, self.current_piece.orientation);
+
+        self.generate_next_piece_type();
+    }
+
+    fn reset_ticks(self: *Self) void {
+        const tick_rate = 60.0 / @as(f32, @floatFromInt(self.current_speed)) + 2.0;
+        self.next_tick_time_secs = tick_rate;
+    }
 };
 
-pub fn create_game_state(speed: u32, seed: u64, user_settings: UserSettings) GameState {
-    var rng = std.Random.Xoroshiro128.init(seed);
-
-    const next_piece_type = generate_new_piece_type(&rng.random());
-
+pub fn create_game_state(speed: u32, seed: u64) GameState {
     var game = GameState{
-        .rng = rng,
-        .settings = user_settings,
+        .rng = std.Random.Xoroshiro128.init(seed),
         .current_speed = speed,
-        .next_piece_type = next_piece_type,
     };
 
-    generate_next_piece(&game);
-
-    for (&game.board) |*cell| {
-        cell.* = null;
-    }
+    game.generate_next_piece_type();
+    game.generate_next_piece();
+    game.reset_ticks();
 
     return game;
 }
@@ -60,8 +79,7 @@ pub fn press_direction_down(game: *GameState) void {
     const collides_with_board = check_piece_collision(game.board, piece_one_step_down);
 
     if (collides_with_board) {
-        place_piece(game, game.current_piece);
-        generate_next_piece(game);
+        place_piece_and_generate_next(game, game.current_piece);
     } else {
         game.current_piece.offset += .{ 0, 1 };
     }
@@ -84,28 +102,39 @@ pub fn press_direction_side(game: *GameState, right: bool) void {
     }
 }
 
-pub fn update(game: *GameState) void {
-    _ = game;
-}
+pub fn press_rotate(game: *GameState, clockwise: bool) void {
+    const old_orientation_int: u2 = @intFromEnum(game.current_piece.orientation);
+    const new_rotation: Orientation = @enumFromInt(if (clockwise) old_orientation_int +% 1 else old_orientation_int -% 1);
 
-fn generate_next_piece(game: *GameState) void {
-    game.current_piece = .{
-        .type = game.next_piece_type,
-        .orientation = .North,
-        .offset = .{ 3, 0 },
-        .local_positions = undefined, // Set right after
+    const piece_rotated = Piece{
+        .type = game.current_piece.type,
+        .orientation = new_rotation,
+        .offset = game.current_piece.offset,
+        .local_positions = build_piece_positions(game.current_piece.type, new_rotation),
     };
-    game.current_piece.local_positions = build_piece_positions(game.current_piece.type, game.current_piece.orientation);
 
-    game.next_piece_type = generate_new_piece_type(&game.rng.random());
+    const collides_with_board = check_piece_collision(game.board, piece_rotated);
+
+    if (collides_with_board) {
+        // TODO feedback
+    } else {
+        game.current_piece = piece_rotated;
+    }
 }
 
-fn place_piece(game: *GameState, piece: Piece) void {
+pub fn update(game: *GameState, time_delta_secs: f32) void {
+    _ = game;
+    _ = time_delta_secs;
+}
+
+fn place_piece_and_generate_next(game: *GameState, piece: Piece) void {
     for (game.current_piece.local_positions) |local_position| {
         const block_offset = piece.offset + local_position;
         const board_offset_flat = cell_index_from_coord(@intCast(block_offset));
         game.board[board_offset_flat] = game.current_piece.type;
     }
+
+    game.generate_next_piece();
 }
 
 fn check_piece_collision(board: GameState.Board, piece: Piece) bool {
@@ -154,15 +183,6 @@ pub fn cell_index_from_coord(position: u32_2) u32 {
 
     return position[0] + BoardWidth * position[1];
 }
-
-pub const UserSettings = packed struct {
-    // enable_clear_blur: bool = true,
-    // show_grid: bool = true,
-    // show_piece_shadow: bool = true,
-    // show_score_animations: bool = true,
-    // show_upcoming_piece: bool = true,
-    // enable_soft_drop: bool = false,
-};
 
 const Piece = struct {
     type: PieceType,
@@ -319,19 +339,4 @@ fn build_piece_positions(piece_type: PieceType, orientation: Orientation) [4]i32
             },
         },
     };
-}
-
-// const GameButtons = struct {
-//     d_up: bool,
-//     d_down: bool,
-//     d_left: bool,
-//     d_right: bool,
-//     rotate_cw: bool,
-//     rotate_ccw: bool,
-//     confirm: bool,
-//     pause: bool,
-// };
-
-fn generate_new_piece_type(random: *const std.Random) PieceType {
-    return @enumFromInt(random.uintLessThan(u32, PieceType.Count)); // FIXME
 }
