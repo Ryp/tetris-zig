@@ -53,6 +53,44 @@ pub const GameState = struct {
         const tick_rate = 60.0 / @as(f32, @floatFromInt(self.current_speed)) + 2.0;
         self.next_tick_time_secs = tick_rate;
     }
+
+    fn check_for_cleared_lines(self: *Self) void {
+        for (0..BoardHeight) |line_index| {
+            for (0..BoardWidth) |x| {
+                const board_position_flat = cell_index_from_coord((u32_2{ @intCast(x), @intCast(line_index) }));
+
+                if (self.board[board_position_flat] == null) {
+                    break;
+                }
+            } else {
+                self.lines_cleared_array[self.lines_cleared_count] = @intCast(line_index);
+                self.lines_cleared_count += 1;
+            }
+        }
+
+        assert(self.lines_cleared_count <= 4);
+    }
+
+    fn clear_lines(self: *Self) void {
+        assert(self.lines_cleared_count <= 4);
+
+        // Copy board one step down for each cleared line
+        for (self.lines_cleared_array[0..self.lines_cleared_count]) |line_to_clear| {
+            const src_begin_offset = 0;
+            const src_end_offset = line_to_clear * BoardWidth;
+            const dst_begin_offset = src_begin_offset + BoardWidth;
+            const dst_end_offset = src_end_offset + BoardWidth;
+
+            std.mem.copyBackwards(?PieceType, self.board[dst_begin_offset..dst_end_offset], self.board[src_begin_offset..src_end_offset]);
+        }
+
+        // Make sure the top rows are empty
+        for (self.board[0 .. self.lines_cleared_count * BoardWidth]) |*board_cell| {
+            board_cell.* = null;
+        }
+
+        self.lines_cleared_count = 0;
+    }
 };
 
 pub fn create_game_state(speed: u32, seed: u64) GameState {
@@ -80,9 +118,16 @@ pub fn press_direction_down(game: *GameState) void {
 
     if (collides_with_board) {
         place_piece_and_generate_next(game, game.current_piece);
+        game.check_for_cleared_lines();
+
+        if (game.lines_cleared_count > 0) {
+            game.clear_lines();
+        }
     } else {
         game.current_piece.offset += .{ 0, 1 };
     }
+
+    game.reset_ticks();
 }
 
 pub fn press_direction_side(game: *GameState, right: bool) void {
