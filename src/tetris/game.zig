@@ -14,6 +14,7 @@ pub const GameState = struct {
     rng: std.Random.Xoroshiro128,
 
     current_speed: u32,
+    end_game: bool = false,
 
     // Set by reset_ticks
     next_tick_time_secs: f32 = undefined,
@@ -49,9 +50,12 @@ pub const GameState = struct {
         self.generate_next_piece_type();
     }
 
+    fn tick_rate(self: *Self) f32 {
+        return 2.0 / @as(f32, @floatFromInt(self.current_speed));
+    }
+
     fn reset_ticks(self: *Self) void {
-        const tick_rate = 60.0 / @as(f32, @floatFromInt(self.current_speed)) + 2.0;
-        self.next_tick_time_secs = tick_rate;
+        self.next_tick_time_secs = self.tick_rate();
     }
 
     fn check_for_cleared_lines(self: *Self) void {
@@ -168,8 +172,18 @@ pub fn press_rotate(game: *GameState, clockwise: bool) void {
 }
 
 pub fn update(game: *GameState, time_delta_secs: f32) void {
-    _ = game;
-    _ = time_delta_secs;
+    game.next_tick_time_secs -= time_delta_secs;
+
+    while (game.next_tick_time_secs < 0.0) {
+        if (check_piece_collision(game.board, game.current_piece)) {
+            game.end_game = true;
+            return;
+        }
+
+        press_direction_down(game);
+
+        game.next_tick_time_secs += game.tick_rate();
+    }
 }
 
 fn place_piece_and_generate_next(game: *GameState, piece: Piece) void {

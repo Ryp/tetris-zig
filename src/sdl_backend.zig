@@ -108,7 +108,7 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
 
         game.update(game_state, frame_delta_secs);
 
-        const string = try std.fmt.allocPrintZ(allocator, "Tetris | speed {d} tick = {}", .{ game_state.current_speed, game_state.next_tick_time_secs });
+        const string = try std.fmt.allocPrintZ(allocator, "Tetris | speed {d} tick = {}, is_ended = {}", .{ game_state.current_speed, game_state.next_tick_time_secs, game_state.end_game });
         defer allocator.free(string);
 
         _ = c.SDL_SetWindowTitle(window, string.ptr);
