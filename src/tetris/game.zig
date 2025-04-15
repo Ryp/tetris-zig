@@ -110,7 +110,7 @@ pub fn create_game_state(speed: u32, seed: u64) GameState {
     return game;
 }
 
-pub fn press_direction_down(game: *GameState) void {
+pub fn action_push_down(game: *GameState) void {
     const piece_one_step_down = Piece{
         .type = game.current_piece.type,
         .orientation = game.current_piece.orientation,
@@ -134,7 +134,7 @@ pub fn press_direction_down(game: *GameState) void {
     game.reset_ticks();
 }
 
-pub fn press_direction_side(game: *GameState, right: bool) void {
+pub fn action_move_side(game: *GameState, right: bool) void {
     const piece_one_step_side = Piece{
         .type = game.current_piece.type,
         .orientation = game.current_piece.orientation,
@@ -151,7 +151,7 @@ pub fn press_direction_side(game: *GameState, right: bool) void {
     }
 }
 
-pub fn press_rotate(game: *GameState, clockwise: bool) void {
+pub fn action_rotate(game: *GameState, clockwise: bool) void {
     const old_orientation_int: u2 = @intFromEnum(game.current_piece.orientation);
     const new_rotation: Orientation = @enumFromInt(if (clockwise) old_orientation_int +% 1 else old_orientation_int -% 1);
 
@@ -180,7 +180,7 @@ pub fn update(game: *GameState, time_delta_secs: f32) void {
             return;
         }
 
-        press_direction_down(game);
+        action_push_down(game);
 
         game.next_tick_time_secs += game.tick_rate();
     }

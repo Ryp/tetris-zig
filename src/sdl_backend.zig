@@ -85,19 +85,19 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
                             shouldExit = true;
                         },
                         c.SDLK_DOWN => {
-                            game.press_direction_down(game_state);
+                            game.action_push_down(game_state);
                         },
                         c.SDLK_RIGHT => {
-                            game.press_direction_side(game_state, true);
+                            game.action_move_side(game_state, true);
                         },
                         c.SDLK_LEFT => {
-                            game.press_direction_side(game_state, false);
+                            game.action_move_side(game_state, false);
                         },
                         c.SDLK_E => {
-                            game.press_rotate(game_state, true);
+                            game.action_rotate(game_state, true);
                         },
                         c.SDLK_W => {
-                            game.press_rotate(game_state, false);
+                            game.action_rotate(game_state, false);
                         },
                         else => {},
                     }
