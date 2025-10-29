@@ -121,15 +121,29 @@ pub fn action_push_down(game: *GameState) void {
     const collides_with_board = check_piece_collision(game.board, piece_one_step_down);
 
     if (collides_with_board) {
-        place_piece_and_generate_next(game, game.current_piece);
-        game.check_for_cleared_lines();
-
-        if (game.lines_cleared_count > 0) {
-            game.clear_lines();
-        }
+        place_piece_and_generate_next_and_check_cleared_lines(game, game.current_piece);
     } else {
         game.current_piece.offset += .{ 0, 1 };
     }
+
+    game.reset_ticks();
+}
+
+pub fn action_fully_drop_down(game: *GameState) void {
+    var steps: i32 = 0;
+
+    while (!check_piece_collision(game.board, Piece{
+        .type = game.current_piece.type,
+        .orientation = game.current_piece.orientation,
+        .offset = game.current_piece.offset + i32_2{ 0, steps + 1 },
+        .local_positions = game.current_piece.local_positions,
+    })) {
+        steps += 1;
+    }
+
+    game.current_piece.offset[1] += steps;
+
+    place_piece_and_generate_next_and_check_cleared_lines(game, game.current_piece);
 
     game.reset_ticks();
 }
@@ -186,7 +200,7 @@ pub fn update(game: *GameState, time_delta_secs: f32) void {
     }
 }
 
-fn place_piece_and_generate_next(game: *GameState, piece: Piece) void {
+fn place_piece_and_generate_next_and_check_cleared_lines(game: *GameState, piece: Piece) void {
     for (game.current_piece.local_positions) |local_position| {
         const block_offset = piece.offset + local_position;
         const board_offset_flat = cell_index_from_coord(@intCast(block_offset));
@@ -194,6 +208,12 @@ fn place_piece_and_generate_next(game: *GameState, piece: Piece) void {
     }
 
     game.generate_next_piece();
+
+    game.check_for_cleared_lines();
+
+    if (game.lines_cleared_count > 0) {
+        game.clear_lines();
+    }
 }
 
 fn check_piece_collision(board: GameState.Board, piece: Piece) bool {

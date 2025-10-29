@@ -87,6 +87,9 @@ pub fn execute_main_loop(allocator: std.mem.Allocator, game_state: *game.GameSta
                         c.SDLK_DOWN => {
                             game.action_push_down(game_state);
                         },
+                        c.SDLK_UP => {
+                            game.action_fully_drop_down(game_state);
+                        },
                         c.SDLK_RIGHT => {
                             game.action_move_side(game_state, true);
                         },
