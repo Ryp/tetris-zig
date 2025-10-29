@@ -9,20 +9,22 @@ pub fn build(b: *std.Build) void {
 
     // Standard release options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
-    const optimize_mode = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
     const no_bin = b.option(bool, "no-bin", "skip emitting binary") orelse false;
 
     const exe = b.addExecutable(.{
         .name = "tetris",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize_mode,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     const sdl_dep = b.dependency("sdl", .{
         .target = target,
-        .optimize = optimize_mode,
+        .optimize = optimize,
     });
     const sdl_lib = sdl_dep.artifact("SDL3");
 
@@ -46,9 +48,12 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/tetris/test.zig"),
-        .target = target,
-        .optimize = optimize_mode,
+        .name = "test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tetris/test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
